@@ -1,0 +1,107 @@
+import React, { useEffect, useState } from 'react';
+import { Web3AuthNoModal } from "@web3auth/no-modal";
+import { OpenloginAdapter } from "@web3auth/openlogin-adapter";
+import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
+import { WALLET_ADAPTERS } from "@web3auth/base";
+import {clientId,chainConfig} from "./config/config"
+import abi from "./abi/ABI.json"
+import Web3 from 'web3';
+import Login from './components/Login';
+const YourComponent = () => {
+  const [web3authInstance, setweb3authInstance] = useState(null);
+  const [web3authProvider,setWeb3AuthProvider]=useState(null)
+  const [web3,setWeb3]=useState(null)
+  const [contract,setContract]=useState(null)
+  useEffect(() => {
+    const initWeb3Auth = async () => {
+        try{
+            const web3authInstance = new Web3AuthNoModal({
+              clientId,
+              web3AuthNetwork: "sapphire_devnet",
+              chainConfig,
+            });
+
+            const privateKeyProvider = new EthereumPrivateKeyProvider({
+              config: { chainConfig },
+            });
+            
+            const openloginAdapter = new OpenloginAdapter({
+              privateKeyProvider,
+            });
+            web3authInstance.configureAdapter(openloginAdapter);
+            setweb3authInstance(web3authInstance)      
+            // Initialize
+            await web3authInstance.init();
+            
+        }catch(error){
+          console.log(error)
+        }
+    }
+    initWeb3Auth();
+  }, []);
+  const handleLogout = async () => {
+    try {
+      await web3authInstance.logout();
+      console.log("Logout")
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+  const connect = async()=>{
+    try{
+
+      if(web3authProvider===null){
+        const web3authProvider = await web3authInstance.connectTo(WALLET_ADAPTERS.OPENLOGIN, {
+          loginProvider: "linkedin",
+        });
+        const web3 = new Web3(web3authProvider);
+        setWeb3(web3)
+        const contractAddress="0x80BDaf1de544A4D4A6fBC22Cb214C70f064e6577";
+        const contract = new web3.eth.Contract(abi,contractAddress);
+        setContract(contract)
+        const accounts = await web3.eth.getAccounts()
+        console.log(accounts)
+        const balance = await web3.eth.getBalance(accounts[0])
+        console.log(balance)
+        console.log(await web3authInstance.getUserInfo())
+        setWeb3AuthProvider(web3authProvider)
+
+      }
+    }catch(error){
+      console.log(error)
+    }
+  }
+
+  const storeValue = async()=>{
+    const accounts = await web3.eth.getAccounts()
+    await contract.methods.store(3).send({from:accounts[0]})
+    console.log("done")
+  }
+  return (
+    <div>
+     <Login web3authInstance={web3authInstance}/>
+     <button onClick={connect}>Connect</button>
+     <button onClick={handleLogout}>Logout</button>
+     <button onClick={storeValue}>Store</button>
+    </div>
+  );
+};
+
+export default YourComponent;
+
+      //Google
+        // const web3authProvider = await web3authInstance.connectTo(WALLET_ADAPTERS.OPENLOGIN, {
+        //   loginProvider: "google",
+        // });
+
+        //Auth0
+        // const web3authProvider = await web3authInstance.connectTo(WALLET_ADAPTERS.OPENLOGIN, {
+        //   loginProvider: "jwt",
+        //   extraLoginOptions: {
+        //     verifierIdField: "sub", // same as your JWT Verifier ID
+        //     domain: "https://dev-yepqgoh1027lep8m.us.auth0.com", // your service provider domain, e.g. Auth0
+        //     connection: "linkedin",
+        //   },
+        // });
+
+        //0x80BDaf1de544A4D4A6fBC22Cb214C70f064e6577
